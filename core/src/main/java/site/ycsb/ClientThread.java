@@ -38,6 +38,7 @@ public class ClientThread implements Runnable {
   private double targetOpsPerMs;
 
   private int opsdone;
+  private int opsdonelastworkload;
   private int threadid;
   private int threadcount;
   private Object workloadstate;
@@ -63,6 +64,7 @@ public class ClientThread implements Runnable {
     this.workload = workload;
     this.opcount = opcount;
     opsdone = 0;
+    opsdonelastworkload = 0;
     if (targetperthreadperms > 0) {
       targetOpsPerMs = targetperthreadperms;
       targetOpsTickNs = (long) (1000000 / targetOpsPerMs);
@@ -117,15 +119,37 @@ public class ClientThread implements Runnable {
       if (dotransactions) {
         long startTimeNanos = System.nanoTime();
 
-        while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-
-          if (!workload.doTransaction(db, workloadstate)) {
-            break;
+        if (workload.isMultiWorkload()) {
+          // Multi-workload support
+          int curWorkloadId = 0;
+          while (!workload.isStopRequested() &&
+              !workload.multiWorkloadFinished(curWorkloadId)) {
+            while (!workload.needSwitchWorkload(curWorkloadId)) {
+              if (!workload.doTransaction(db, workloadstate)) {
+                break;
+              }
+              opsdone++;
+              workload.increaseOpCount();
+            }
+            int opsDiff = opsdone - opsdonelastworkload;
+            workload.increaseWorkloadOpsDone(curWorkloadId, opsDiff);
+            // record the ops done at the end of last workload for later calculation
+            opsdonelastworkload = opsdone;
+            System.err.printf("Client thread %d finish workload %d. Switch to next...%n", threadid, curWorkloadId);
+            curWorkloadId += 1;
           }
+        } else {
+          // Single-workload support
+          while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
+  
+            if (!workload.doTransaction(db, workloadstate)) {
+              break;
+            }
 
-          opsdone++;
+            opsdone++;
 
-          throttleNanos(startTimeNanos);
+            throttleNanos(startTimeNanos);
+          }
         }
       } else {
         long startTimeNanos = System.nanoTime();

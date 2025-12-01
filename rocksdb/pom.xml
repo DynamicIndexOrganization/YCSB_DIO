@@ -30,11 +30,31 @@ LICENSE file.
   <packaging>jar</packaging>
 
   <dependencies>
+    <!-- <dependency>
+      <groupId>org.rocksdbVA</groupId>
+      <artifactId>rocksdbVA</artifactId>
+      <version>10.1.1</version>
+    </dependency> -->
+    <!-- <dependency>
+      <groupId>org.rocksdbBase</groupId>
+      <artifactId>rocksdbBase</artifactId>
+      <version>10.1.1</version>
+    </dependency> -->
+
     <dependency>
-      <groupId>org.rocksdb</groupId>
+      <groupId>org.rocksdb_DIO</groupId>
       <artifactId>rocksdbjni</artifactId>
-      <version>${rocksdb.version}</version>
+      <version>LOCAL</version>
+      <scope>system</scope>
+      <systemPath>/home/user/research/rocksdb_VA/java/target/rocksdbjni-10.1.0-linux64.jar</systemPath>
     </dependency>
+    <!-- <dependency>
+      <groupId>org.rocksdbBase</groupId>
+      <artifactId>rocksdbjni</artifactId>
+      <version>LOCAL</version>
+      <scope>system</scope>
+      <systemPath>/home/user/research/rocksdb_baseline/java/target/rocksdbjni-10.1.0-linux64.jar</systemPath>
+    </dependency> -->
     <dependency>
       <groupId>site.ycsb</groupId>
       <artifactId>core</artifactId>

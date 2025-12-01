@@ -386,4 +386,8 @@ public class IncrementingPrintableStringGenerator extends Generator<String> {
     return validCharacters;
   }
 
+  @Override
+  public void print() {
+    return;
+  }
 }

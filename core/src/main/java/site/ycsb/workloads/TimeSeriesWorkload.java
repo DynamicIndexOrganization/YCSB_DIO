@@ -1286,4 +1286,60 @@ public class TimeSeriesWorkload extends Workload {
     }
   }
 
+  @Override
+  public boolean isMultiWorkload() {
+    return false;
+  }
+  @Override
+  public boolean multiWorkloadFinished(int curWorkloadId) {
+    return true;
+  }
+
+  @Override
+  public Long getCurrentWorkloadStopCondition(int curWorkloadId) {
+    return 0L;
+  }
+
+  @Override
+  public String getCurrentWorkloadStopConditionType(int curWorkloadId) {
+    return "";
+  }
+
+  @Override
+  public void switchToNextWorkload(int nextWorkloadId) {
+    return;
+  }
+
+  @Override
+  public boolean needSwitchWorkload(int curWorkloadId) {
+    return false;
+  }
+
+  @Override
+  public void setSwitchWorkload(int curWorkloadId) {
+    return;
+  }
+
+  @Override
+  public void increaseWorkloadOpsDone(int curWorkloadId, int opsDone) {
+    return;
+  }
+
+  @Override
+  public Integer getWorkloadOpsDone(int curWorkloadId) {
+    return 0;
+  }
+  @Override
+  public void setWorkloadTimeInterval(int curWorkloadId, double timeInterval) {
+    return;
+  }
+
+  @Override
+  public Double getWorkloadTimeInterval(int curWorkloadId) {
+    return 0d;
+  }
+  @Override
+  public Integer getMultiWorloadCount() {
+    return 1;
+  }
 }

@@ -31,6 +31,7 @@ public class TerminatorThread extends Thread {
   private long maxExecutionTime;
   private Workload workload;
   private long waitTimeOutInMS;
+  private boolean workloadSwitchMode;
 
   public TerminatorThread(long maxExecutionTime, Collection<? extends Thread> threads,
                           Workload workload) {
@@ -38,10 +39,73 @@ public class TerminatorThread extends Thread {
     this.threads = threads;
     this.workload = workload;
     waitTimeOutInMS = 2000;
-    System.err.println("Maximum execution time specified as: " + maxExecutionTime + " secs");
+    if (maxExecutionTime != 0) {
+      System.err.println("Maximum execution time specified as: " + maxExecutionTime + " secs");
+    }
+
+    workloadSwitchMode = workload.isMultiWorkload();
   }
 
   public void run() {
+    if (workloadSwitchMode) {
+      multiWorkloadRun();
+    } else {
+      normalRun();
+    }
+  }
+
+  /*
+   * Main entries for multi-workload support
+   * Terminator will tracks the time the current workload runs and notify client threads to switch
+   * to next workload when the stop condition is satisfied.
+   */
+  public void multiWorkloadRun() {
+    int workloadId = 0;
+    int milliToNano = 1000000;
+    workload.clearOpCount();
+
+    while (!workload.multiWorkloadFinished(workloadId)) {
+      final long startTimeNanos = System.nanoTime();
+      try {
+        // Terminator supports two stop conditions: Duration and Operation Count
+        if (workload.getCurrentWorkloadStopConditionType(workloadId).equals("duration")) {
+          Thread.sleep(workload.getCurrentWorkloadStopCondition(workloadId) / milliToNano);
+        } else {
+          workload.clearOpCount();
+          Long targetOpsCount = workload.getCurrentWorkloadStopCondition(workloadId);
+          while (workload.getCurrentOpCount() <= targetOpsCount) {
+            // sleep for 1 sec
+            Thread.sleep(1000);
+          }
+        }
+      } catch (InterruptedException e) {
+        System.err.println("Could not wait until the duration of the current workload, TerminatorThread interrupted.");
+        return;
+      }
+      System.err.printf("Workload %d finished. Requesting switching the workload.%n", workloadId);
+      workloadId += 1;
+      workload.switchToNextWorkload(workloadId);
+      System.err.printf("Complete switching to the workload.%n", workloadId);
+      final long timeInterval = System.nanoTime() - startTimeNanos;
+      workload.setWorkloadTimeInterval(workloadId - 1, timeInterval);
+    }
+    workload.requestStop();
+    for (Thread t : threads) {
+      while (t.isAlive()) {
+        try {
+          t.join(waitTimeOutInMS);
+          if (t.isAlive()) {
+            System.out.println("Still waiting for thread " + t.getName() + " to complete. " +
+                "Workload status: " + workload.isStopRequested());
+          }
+        } catch (InterruptedException e) {
+          // Do nothing. Don't know why I was interrupted.
+        }
+      }
+    }
+  }
+
+  public void normalRun() {
     try {
       Thread.sleep(maxExecutionTime * 1000);
     } catch (InterruptedException e) {

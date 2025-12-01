@@ -42,4 +42,9 @@ public abstract class NumberGenerator extends Generator<Number> {
    * Return the expected value (mean) of the values this generator will return.
    */
   public abstract double mean();
+
+  @Override
+  public void print() {
+    return;
+  }
 }

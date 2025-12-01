@@ -71,4 +71,9 @@ public class FileGenerator extends Generator<String> {
       throw new RuntimeException(e);
     }
   }
+
+  @Override
+  public void print() {
+    return;
+  }
 }

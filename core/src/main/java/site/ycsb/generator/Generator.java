@@ -43,5 +43,7 @@ public abstract class Generator<V> {
     V ret = lastValue();
     return ret == null ? null : ret.toString();
   }
+
+  public abstract void print();
 }
 

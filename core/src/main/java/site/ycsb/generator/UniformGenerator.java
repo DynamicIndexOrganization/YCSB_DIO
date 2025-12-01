@@ -59,5 +59,10 @@ public class UniformGenerator extends Generator<String> {
     }
     return laststring;
   }
+
+  @Override
+  public void print() {
+    return;
+  }
 }
 

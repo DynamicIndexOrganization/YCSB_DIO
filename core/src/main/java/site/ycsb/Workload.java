@@ -18,6 +18,7 @@
 package site.ycsb;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Properties;
 
 
@@ -42,6 +43,7 @@ public abstract class Workload {
   public static final String INSERT_START_PROPERTY_DEFAULT = "0";
   
   private volatile AtomicBoolean stopRequested = new AtomicBoolean(false);
+  private volatile AtomicInteger opCount;
   
   /** Operations available for a database. */
   public enum Operation {
@@ -59,6 +61,8 @@ public abstract class Workload {
   public void init(Properties p) throws WorkloadException {
   }
 
+  public void initMultiWorkload(Properties p, Integer workloadCount) throws WorkloadException {
+  }
   /**
    * Initialize any state for a particular client thread. Since the scenario object
    * will be shared among all threads, this is the place to create any state that is specific
@@ -113,10 +117,59 @@ public abstract class Workload {
   }
 
   /**
+   * Abstract functions to support multi-workload YCSB.
+   * @return
+   */
+  public abstract boolean isMultiWorkload();
+  public abstract boolean multiWorkloadFinished(int curWorkloadId);
+  public abstract Long getCurrentWorkloadStopCondition(int curWorkloadId);
+  public abstract String getCurrentWorkloadStopConditionType(int curWorkloadId);
+  public abstract void switchToNextWorkload(int nextWorkloadId);
+  public abstract boolean needSwitchWorkload(int curWorkloadId);
+  public abstract void setSwitchWorkload(int curWorkloadId);
+  public abstract void increaseWorkloadOpsDone(int curWorkloadId, int opsDone);
+  public abstract Integer getWorkloadOpsDone(int curWorkloadId);
+  public abstract void setWorkloadTimeInterval(int curWorkloadId, double timeInterval);
+  public abstract Double getWorkloadTimeInterval(int curWorkloadId);
+  public abstract Integer getMultiWorloadCount();
+
+  /**
    * Check the status of the stop request flag.
    * @return true if stop was requested, false otherwise.
    */
   public boolean isStopRequested() {
     return stopRequested.get();
+  }
+
+  /**
+   * Initialize operation counter.
+   */
+  public void initOpCount() {
+    opCount = new AtomicInteger(0);
+  }
+
+  /**
+   * Read current operation counter.
+   * @return current operation counter
+   */
+  public int  getCurrentOpCount() {
+    return opCount.get();
+  }
+
+  /**
+   * Reset current operation counter.
+   */
+  public void clearOpCount() {
+    opCount.set(0);
+  }
+
+  /**
+   * Increase current operation counter atomically.
+   */
+  public void increaseOpCount() {
+    int curOpCount = opCount.get();
+    while (!opCount.weakCompareAndSetRelease(curOpCount, curOpCount+1)) {
+      curOpCount = opCount.get();
+    }
   }
 }

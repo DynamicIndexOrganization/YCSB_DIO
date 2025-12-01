@@ -98,13 +98,24 @@ public class RocksDBClient extends DB {
     }
 
     final DBOptions options = new DBOptions();
+    final ConfigOptions configOptions = new ConfigOptions();
+    configOptions.setEnv(Env.getDefault());
     final List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
     final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
     RocksDB.loadLibrary();
-    OptionsUtil.loadOptionsFromFile(optionsFile.toAbsolutePath().toString(), Env.getDefault(), options, cfDescriptors);
+    OptionsUtil.loadOptionsFromFile(configOptions, optionsFile.toAbsolutePath().toString(),
+        options, cfDescriptors);
     dbOptions = options;
 
+    RateLimiter rateLimiter = new RateLimiter(
+                    2L * 1024 * 1024 * 1024,  // bytes per second
+                    100_000,                  // refill period in micros
+                    10                        // fairness
+            );
+    options.setRateLimiter(rateLimiter);
+  
+    // options.setAllowConcurrentMemtableWrite(false);
     final RocksDB db = RocksDB.open(options, rocksDbDir.toAbsolutePath().toString(), cfDescriptors, cfHandles);
 
     for(int i = 0; i < cfDescriptors.size(); i++) {

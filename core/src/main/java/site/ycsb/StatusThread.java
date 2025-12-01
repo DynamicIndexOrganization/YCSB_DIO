@@ -47,6 +47,8 @@ public class StatusThread extends Thread {
   // The interval for reporting status.
   private long sleeptimeNs;
 
+  private Workload workload;
+
   // JVM max/mins
   private int maxThreads;
   private int minThreads = Integer.MAX_VALUE;
@@ -67,9 +69,9 @@ public class StatusThread extends Thread {
    * @param standardstatus        If true the status is printed to stdout in addition to stderr.
    * @param statusIntervalSeconds The number of seconds between status updates.
    */
-  public StatusThread(CountDownLatch completeLatch, List<ClientThread> clients,
+  public StatusThread(CountDownLatch completeLatch, Workload workload, List<ClientThread> clients,
                       String label, boolean standardstatus, int statusIntervalSeconds) {
-    this(completeLatch, clients, label, standardstatus, statusIntervalSeconds, false);
+    this(completeLatch, workload, clients, label, standardstatus, statusIntervalSeconds, false);
   }
 
   /**
@@ -83,9 +85,10 @@ public class StatusThread extends Thread {
    * @param statusIntervalSeconds The number of seconds between status updates.
    * @param trackJVMStats         Whether or not to track JVM stats.
    */
-  public StatusThread(CountDownLatch completeLatch, List<ClientThread> clients,
+  public StatusThread(CountDownLatch completeLatch, Workload workload, List<ClientThread> clients,
                       String label, boolean standardstatus, int statusIntervalSeconds,
                       boolean trackJVMStats) {
+    this.workload = workload;
     this.completeLatch = completeLatch;
     this.clients = clients;
     this.label = label;
@@ -129,6 +132,26 @@ public class StatusThread extends Thread {
     }
     // Print the final stats.
     computeStats(startTimeMs, startIntervalMs, System.currentTimeMillis(), lastTotalOps);
+
+    // Print the multiworkload stats here
+    printMultiWorkloadStat();
+  }
+
+  /*
+   * Print the statistics of Multi-workload.
+   * It will report the throughput of each workload seperately.
+   */
+  private void printMultiWorkloadStat() {
+    int workloadCount = workload.getMultiWorloadCount();
+  
+    System.err.println("[Multi-Workload Throughput Summary]");
+    for (int workloadId = 0; workloadId < workloadCount; workloadId++) {
+      int opCount = workload.getWorkloadOpsDone(workloadId);
+      double interval = workload.getWorkloadTimeInterval(workloadId) / 1000000000.0; // ns to second
+      double throughput = (((double) opCount) / interval);
+      System.err.println("    Workload " + workloadId + ": Total " + opCount + " ops in " +
+          interval + "second. Avg. Throughput: " + throughput);
+    }
   }
 
   /**

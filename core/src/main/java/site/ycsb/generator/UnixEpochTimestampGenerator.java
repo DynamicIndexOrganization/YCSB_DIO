@@ -180,4 +180,8 @@ public class UnixEpochTimestampGenerator extends Generator<Long> {
     return currentTimestamp;
   }
 
+  @Override
+  public void print() {
+    return;
+  }
 }

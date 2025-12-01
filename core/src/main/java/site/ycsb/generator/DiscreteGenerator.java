@@ -35,6 +35,10 @@ public class DiscreteGenerator extends Generator<String> {
       this.weight = weight;
       this.value = requireNonNull(value);
     }
+
+    String print() {
+      return value + ": " + weight;
+    }
   }
 
   private final Collection<Pair> values = new ArrayList<>();
@@ -87,4 +91,11 @@ public class DiscreteGenerator extends Generator<String> {
     values.add(new Pair(weight, value));
   }
 
+  @Override
+  public void print() {
+    System.out.println("Current Workload Info:");
+    for (Pair p : values) {
+      System.out.println("   "+ p.print());
+    }
+  }
 }

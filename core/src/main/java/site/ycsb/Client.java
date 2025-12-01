@@ -319,7 +319,7 @@ public final class Client {
       int statusIntervalSeconds = Integer.parseInt(props.getProperty("status.interval", "10"));
       boolean trackJVMStats = props.getProperty(Measurements.MEASUREMENT_TRACK_JVM_PROPERTY,
           Measurements.MEASUREMENT_TRACK_JVM_PROPERTY_DEFAULT).equals("true");
-      statusthread = new StatusThread(completeLatch, clients, label, standardstatus, statusIntervalSeconds,
+      statusthread = new StatusThread(completeLatch, workload, clients, label, standardstatus, statusIntervalSeconds,
           trackJVMStats);
       statusthread.start();
     }
@@ -342,7 +342,9 @@ public final class Client {
         t.start();
       }
 
-      if (maxExecutionTime > 0) {
+      // Initialize a Terminator thread to control workload switch if we are running a multi-workload
+      boolean dotransactions = Boolean.valueOf(props.getProperty(DO_TRANSACTIONS_PROPERTY, String.valueOf(true)));
+      if (maxExecutionTime > 0 || (dotransactions && workload.isMultiWorkload())) {
         terminator = new TerminatorThread(maxExecutionTime, threads.keySet(), workload);
         terminator.start();
       }
