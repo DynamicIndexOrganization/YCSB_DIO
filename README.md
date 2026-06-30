@@ -16,119 +16,114 @@ permissions and limitations under the License. See accompanying
 LICENSE file.
 -->
 
-YCSB
-====================================
-[![Build Status](https://travis-ci.org/brianfrankcooper/YCSB.png?branch=master)](https://travis-ci.org/brianfrankcooper/YCSB)
+# YCSB-DIO
+To fully test the adaptive ability of DIO, we developed a customized variant of YCSB, named YCSB-DIO, that supports running multiple workloads sequentially without restart on one database instance, abrupt online switching between workloads, and phase-aware performance observability.
+
+## Getting Started
+1. Download this repository and the [DIO project](https://github.com/DynamicIndexOrganization/rocksdb_DIO)
+2. Compile DIO using normal execution mode and generate its Java target library using the following command:
+```
+make -sj12 clean jclean
+make -sj12 rocksdbjavastatic
+```
+3. Find the Java<code>(.jar)</code> file, normally located at <code><dio_project_path>/java/target</code> directory.
+4. Update the <code><systemPath></code> in DIO dependency information in file <code>rocksdb/pom.xml</code>:
+```
+    # Replace your-path-to-jar-file
+    # Currently, it is set to the path within the DIO experiment environment.
+    <dependency>
+      <groupId>org.rocksdb_DIO</groupId>
+      <artifactId>rocksdbjni</artifactId>
+      <version>LOCAL</version>
+      <scope>system</scope>
+      <systemPath> your-path-to-jar-file </systemPath>
+    </dependency>
+```
+We also leave a placeholder dependency for the baseline build, which is disabled by default:
+```
+<!-- <dependency>
+  <groupId>org.rocksdbBase</groupId>
+  <artifactId>rocksdbjni</artifactId>
+  <version>LOCAL</version>
+  <scope>system</scope>
+  <systemPath>/home/user/research/rocksdb_baseline/java/target/rocksdbjni-10.1.0-linux64.jar</systemPath>
+</dependency> -->
+```
+You can fork RocksDB, compile it, and modify the information here accordingly to run the baseline easily.
+
+5. After the pom file is updated, use the following command to ensure the linkage is error-free
+```
+# This command will clean old binding, bind DIO to YCSB, and run some basic tests.
+mvn -pl site.ycsb:rocksdb-binding -am clean package -e
+```
+6. Compile a multi-workload using the guide below, or leverage any multi-workload saved in the directory <code>exp_workload</code>, which are the workload files used by the DIO evaluation.
+7. Run the following command to start the test:
+```
+# running ycsb using 16 Client threads with the workload 5050SWto2080GW
+./bin/ycsb run rocksdb -s -threads 16 -P exp_workload/5050SWto2080GW
+```
+
+## Multi-Workload File
+YCSB-DIO supports multiple workloads using one instance without restarting between workloads. In this framework, multiple workloads are executed consecutively within the same benchmark run, where each workload phase runs to completion before transitioning to the next. We defined a new workload file format based on the original workload syntax.
+
+The original workload file is defined in the following format:
+```
+workload=site.ycsb.workloads.CoreWorkload
+recordcount=1000000
+operationcount=3000000
+...
+readproportion=0.2
+updateproportion=0
+scanproportion=0
+insertproportion=0.8
+...
+requestdistribution=latest
+```
+The query proportion listed above defines the workload: it contains 80\% INSERT queries and 20\% READ or POINT\_GET queries. Attribute _recordcount_ defines the size of the key space, _operationcount_ defines how many operations will be run in this workload, and _requestdistribution_ defines what key distribution the current workload uses.
+
+In YCSB-DIO, we support defining multiple workloads explicitly within one workload file while maintaining other basic attributes. Besides the basic attributes mentioned above, a multi-workload file used in YCSB-DIO has the following format:
+```
+...
+workloadcount=2
+...
+readproportion_1=0
+updateproportion_1=0    
+scanproportion_1=0.2
+insertproportion_1=0.8
+stopcondition_1=duration
+workloadduration_1=60
+
+readproportion_2=0
+updateproportion_2=0
+scanproportion_2=0
+insertproportion_2=1
+stopcondition_2=opcount
+workloadopcount_2=2000000
+```
+In our multi-workload file, we use _workloadcount_ to specify how many workloads are defined. Each workload **i** is defined by a set of proportion attributes with suffix **_i**. We support specifying the stopping condition of each workload either by duration or operation count. As the example shown above, we have 2 workloads: the first workload to run is a mix of 80\% INSERT operations and 20\% RANGE\_SCAN operations, and the second workload contains 100\% INSERT operations, which is an INSERT-ONLY workload. The workload 1 will run for 60 seconds, and the workload 2 will run until 2 million operations are done. When the stopping condition of workload 1 is reached, all threads will immediately start processing queries from workload 2. At the end of the execution of the multi-workload, it will print out the throughput of each workload separately, along with the overall throughput. 
 
 
+### Note
+1. To run DIO properly, we offered a sample option file in <code>rocksdb/dio_options.ini</code>, which is also used by the DIO evaluation. We added the following new options for DIO
+```
+  # To enable DIO
+  enable_dynamic_index_organization=true
+  # To avoid memtable type oscillation when two memtable types have close cost
+  dynamic_index_organization_cost_adjust_factor=0.9
+  # To initialize the memtable factory at system initialization. Keep them untouched
+  skip_list_memtable_factory=SkipListRepFactory
+  vector_memtable_factory=VectorRepFactory
+  hash_skip_list_memtable_factory=HashSkipListRepFactory
+```
+You can also use this option file directly. We offered another file for baseline run saved at <code>rocksdb/baseline_options.ini</code>.
 
-Links
------
-* To get here, use https://ycsb.site
-* [Our project docs](https://github.com/brianfrankcooper/YCSB/wiki)
-* [The original announcement from Yahoo!](https://labs.yahoo.com/news/yahoo-cloud-serving-benchmark/)
+2. Multi-Workload files in <code>exp_workload</code> have the following default setting:
+```
+  # Set the database directory
+  rocksdb.dir=/home/user/research/data
+  # Set the default option file to use during system initialization
+  rocksdb.optionsfile=/home/user/research/YCSB_DIO/rocksdb/options.ini
+```
+Please update them accordingly before your run.
 
-Getting Started
----------------
-
-1. Download the [latest release of YCSB](https://github.com/brianfrankcooper/YCSB/releases/latest):
-
-    ```sh
-    curl -O --location https://github.com/brianfrankcooper/YCSB/releases/download/0.17.0/ycsb-0.17.0.tar.gz
-    tar xfvz ycsb-0.17.0.tar.gz
-    cd ycsb-0.17.0
-    ```
-    
-2. Set up a database to benchmark. There is a README file under each binding 
-   directory.
-
-3. Run YCSB command. 
-
-    On Linux:
-    ```sh
-    bin/ycsb.sh load basic -P workloads/workloada
-    bin/ycsb.sh run basic -P workloads/workloada
-    ```
-
-    On Windows:
-    ```bat
-    bin/ycsb.bat load basic -P workloads\workloada
-    bin/ycsb.bat run basic -P workloads\workloada
-    ```
-
-  Running the `ycsb` command without any argument will print the usage. 
-   
-  See https://github.com/brianfrankcooper/YCSB/wiki/Running-a-Workload
-  for a detailed documentation on how to run a workload.
-
-  See https://github.com/brianfrankcooper/YCSB/wiki/Core-Properties for 
-  the list of available workload properties.
-
-
-Building from source
---------------------
-
-YCSB requires the use of Maven 3; if you use Maven 2, you may see [errors
-such as these](https://github.com/brianfrankcooper/YCSB/issues/406).
-
-To build the full distribution, with all database bindings:
-
-    mvn clean package
-
-To build a single database binding:
-
-    mvn -pl site.ycsb:mongodb-binding -am clean package
-
-Running multiple instances and latency percentiles
---------------------------------------------------
-
-In general, you shall be interested in 99% percentile (P99) of the latency
-distribution, and the rest of the tail - 99.9%, 99.99%, 99.999%. The difference
-between the amount of requests that will be observed by a user that fall
-into 95% (P95) percentile and 99% percentile may be sufficiently large.
-
-For example, see "How Many Nines?" at https://bravenewgeek.com/everything-you-know-about-latency-is-wrong/.
-The formula to calculate probability of how many clients will observe
-a specific percentile is: 
-
-    Probability_to_observe = 1 - Percentile ^ Requests
-
-That is why almost 30% of the users will observe latency worse than P99
-just by loading the default _google.com_ web page:
-
-    1 - 0.99 ^ 30 = 0.27
-
-Remember, that
-
-- _latencies_ percentiles can't be averaged. Don't fall into this
-  [trap](http://latencytipoftheday.blogspot.com/2014/06/latencytipoftheday-you-cant-average.html).
-  Neither latency averages, nor P99 averages do not make any sense.
-
-If you run multiple loaders dump result histograms with:
-
-    -p hdrhistogram.fileoutput=true
-    -p hdrhistogram.output.path=file.hdr
-
-merge them manually and extract required percentiles out of the
-joined result.
-
-Remember that running multiple workloads may distort original
-workloads distributions they were intended to produce.
-
-Merging HDR histogram percentiles
----------------------------------
-
-HdrHistogram can serialize its data to HDR files. Use CLI tool
-to do different operations with your saved histograms
-https://github.com/nitsanw/HdrLogProcessing.
-
-You shall be interested in 3 functions:
-
-- Union - to combine result histograms
-- Summarize - to extract latency percentiles
-- An ability to print the result into the CSV file and extract tags
-
-To extract HDR content into CSV file format use from
-https://github.com/HdrHistogram/HdrHistogram/:
-
-    java -cp HdrHistogram-2.1.9.jar org.HdrHistogram.HistogramLogProcessor -i file.hdr -o output_${tag}.csv -csv -tag ${tag}
+For any question, please check the [original YCSB README](README_YCSB.md)
